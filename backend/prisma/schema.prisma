@@ -1,0 +1,109 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  CUSTOMER
+  RESTAURANT
+  ADMIN
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+}
+
+model Order {
+  id               String      @id @default(uuid())
+  customerId       String
+  foodListingId    String
+  quantity         Int         @default(1)
+  totalAmount      Float       @default(0)
+  status           String      @default("PENDING")
+  verificationCode String
+  createdAt        DateTime    @default(now())
+
+  customer         User        @relation(fields: [customerId], references: [id])
+  foodListing      FoodListing @relation(fields: [foodListingId], references: [id])
+}
+
+model User {
+  id        String   @id @default(cuid())
+  name      String
+  email     String   @unique
+  password  String
+  role      Role     @default(CUSTOMER)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  restaurant Restaurant?
+  bookings   Booking[]
+  Orders      Order[]
+
+
+  @@map("users")
+}
+
+model Restaurant {
+  id        String  @id @default(cuid())
+  ownerId   String  @unique @map("owner_id")
+  name      String
+  address   String
+  latitude  Float
+  longitude Float
+  rating    Float   @default(0.0)
+  imageUrl  String? @map("image_url")
+
+  owner    User          @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  listings FoodListing[]
+
+  @@map("restaurants")
+}
+
+
+model FoodListing {
+  id              String   @id @default(cuid())
+  restaurantId    String   @map("restaurant_id")
+  title           String
+  description     String?
+ 
+  category        String
+  originalPrice   Float    @map("original_price")
+  discountedPrice Float    @map("discounted_price")
+  quantity        Int
+  pickupStart     DateTime @map("pickup_start")
+  pickupEnd       DateTime @map("pickup_end")
+  imageUrl        String?  @map("image_url")
+  isActive        Boolean  @default(true) @map("is_active")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  bookings   Booking[]
+  Orders      Order[]
+
+  @@index([restaurantId])
+  @@index([isActive])
+  @@map("food_listings")
+}
+
+model Booking {
+  id        String        @id @default(cuid())
+  userId    String        @map("user_id")
+  foodId    String        @map("food_id")
+  status    BookingStatus @default(PENDING)
+  qrCode    String        @unique @map("qr_code")
+  createdAt DateTime      @default(now()) @map("created_at")
+
+  user    User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  listing FoodListing @relation(fields: [foodId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([foodId])
+  @@map("bookings")
+}
